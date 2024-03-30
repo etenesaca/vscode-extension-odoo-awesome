@@ -1,8 +1,8 @@
 {
   "name": "odoo-awesome",
   "displayName": "odoo-awesome",
-  "description": "Odoo snippets and extensión - by Edgar Tenesaca",
-  "version": "0.0.1",
+  "description": "Odoo snippets and tools - by Edgar Tenesaca",
+  "version": "0.0.2",
   "publisher": "EdgarTenesaca",
   "engines": {
     "vscode": "^1.87.0"
@@ -13,6 +13,26 @@
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "odoo-awesome",
+      "properties": {
+        "odoo-awesome.odoo-bin-path": {
+          "type": "string",
+          "default": "",
+          "description": "Odoo directory than run"
+        },
+        "odoo-awesome.python-bin-folder": {
+          "type": "string",
+          "default": "",
+          "description": "Python directory than run"
+        },
+        "odoo-awesome.modules_directory": {
+          "type": "string",
+          "default": "",
+          "description": "Modules directory"
+        }
+      }
+    },
     "commands": [
       {
         "command": "odoo-new-module",
