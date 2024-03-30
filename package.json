@@ -3,7 +3,7 @@
   "displayName": "odoo-awesome",
   "description": "Odoo snippets and tools - by Edgar Tenesaca",
   "icon": "images/icon.png",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "EdgarTenesaca",
   "engines": {
     "vscode": "^1.87.0"
