@@ -3,6 +3,7 @@
   "displayName": "odoo-awesome",
   "description": "Odoo snippets and extensión - by Edgar Tenesaca",
   "version": "0.0.1",
+  "publisher": "EdgarTenesaca",
   "engines": {
     "vscode": "^1.87.0"
   },
@@ -37,5 +38,6 @@
     "typescript": "^5.3.3",
     "@vscode/test-cli": "^0.0.8",
     "@vscode/test-electron": "^2.3.9"
-  }
+  },
+  "license": "LICENSE.txt"
 }
