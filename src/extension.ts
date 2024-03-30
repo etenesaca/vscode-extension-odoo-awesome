@@ -141,8 +141,14 @@ export function activate(context: vscode.ExtensionContext) {
 		const inputBox = vscode.window.createInputBox();
 		inputBox.title = "Crear nuevo módulo de odoo";
 		inputBox.placeholder = "Nombre del módulo";
+		inputBox.placeholder = "Nombre del módulo";
 		inputBox.onDidChangeValue(value => {
-			newModuleName = value;
+			if (value.includes(' ')){
+				inputBox.validationMessage = 'No puede contener espacios';
+			} else {
+				inputBox.validationMessage = ''
+			}
+			newModuleName = value.trim().toLowerCase().replaceAll(' ', '_');
 		});
 		inputBox.onDidAccept(() => {
 			if (newModuleName) {
@@ -163,11 +169,11 @@ export function activate(context: vscode.ExtensionContext) {
 						return call_odoo_scafold(newModuleName!, mdl_path!, odoo_bin_path!, python_bin_path!);
 					})
 					.catch(err => {
-						vscode.window.showInformationMessage("Creación del módulo cancelada.");
+						vscode.window.showErrorMessage("Creación del módulo cancelada.");
 					});
 				inputBox.hide();
 			} else {
-				vscode.window.showInformationMessage("Creación del módulo cancelada.");
+				vscode.window.showErrorMessage("Creación del módulo cancelada.");
 				inputBox.hide();
 			}
 		});
