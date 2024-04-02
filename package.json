@@ -38,6 +38,10 @@
       {
         "command": "odoo-new-module",
         "title": "Odoo new module"
+      },
+      {
+        "command": "oerp7_new_wizard",
+        "title": "New wizard - Oerp7"
       }
     ]
   },
