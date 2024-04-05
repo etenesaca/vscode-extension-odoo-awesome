@@ -166,7 +166,7 @@ async function abrirArchivo(rutaArchivo: string) {
 
 
 function capitalizeText(text: string): string {
-    return text.charAt(0).toUpperCase() + text.slice(1);
+	return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 async function createFile(
@@ -191,6 +191,49 @@ async function createFile(
 	}
 }
 
+async function includePyFileWiz(dir_path: string, file_name: string): Promise<void> {
+	return new Promise(async (resolve, reject) => {
+		let to_replace = '# vim:expandtab:smartindent:tabstop=4:softtabstop=4:shiftwidth=4:';
+		let new_text = `import ${file_name}\n${to_replace}`;
+		let file_path = `${dir_path}/wizard/__init__.py`;
+		try {
+			let doc_content = (await vscode.workspace.openTextDocument(file_path)).getText();
+			// Revisar si encuentra el pie de archivo caso contrario agregar el import al final de archivo
+			if (doc_content.includes(to_replace)) {
+				doc_content = doc_content.replace(to_replace, new_text);
+			} else {
+				doc_content += new_text;
+			}
+			fs.writeFileSync(file_path, doc_content);
+			resolve();
+		} catch (error) {
+			reject(new Error(`No se pudo incluir "${file_name}" al __init.py__ de los wizard. Hagalo manualmente`));
+		}
+	});
+}
+
+async function includeXMLFileWiz(dir_path: string, file_name: string): Promise<void> {
+	return new Promise(async (resolve, reject) => {
+		let to_replace = "'update_xml': [";
+		let new_text = `${to_replace}\n'wizard/${file_name}_view.xml'`;
+		let file_path = `${dir_path}/__openerp__.py`;
+		try {
+			let doc_content = (await vscode.workspace.openTextDocument(file_path)).getText();
+			// Revisar si encuentra el pie de archivo caso contrario agregar el import al final de archivo
+			if (doc_content.includes(to_replace)) {
+				doc_content = doc_content.replace(to_replace, new_text);
+			} else if (doc_content.includes(to_replace.replaceAll(' ', ''))) {
+				to_replace = to_replace.replaceAll(' ', '');
+				doc_content = doc_content.replace(to_replace, new_text);
+			}
+			fs.writeFileSync(file_path, doc_content);
+			resolve();
+		} catch (error) {
+			reject(new Error(`No se pudo incluir "${file_name}" al __init.py__ de los wizard. Hagalo manualmente`));
+		}
+	});
+}
+
 
 function create_filesWizard(dir_path: string, module_name: string, wiz_name: string): Promise<string> {
 	return new Promise((resolve, reject) => {
@@ -205,7 +248,6 @@ function create_filesWizard(dir_path: string, module_name: string, wiz_name: str
 		inputBox.value = model;
 		model_name = model;
 		inputBox.placeholder = "modelo";
-		console.log(dir_path);
 
 		inputBox.onDidChangeValue(value => {
 			if (value.includes(' ')) {
@@ -226,6 +268,10 @@ function create_filesWizard(dir_path: string, module_name: string, wiz_name: str
 				let path_xml_file = `${dir_path}/wizard/${file_name}_view.xml`;
 				let xml_placeholder = `${ext_dir}/placeholder/wizard_xml_def_content.xml`;
 				createFile(path_xml_file, xml_placeholder, model_name, wiz_name);
+				// Agregar nuevo wizard al imports
+				includePyFileWiz(dir_path, file_name).catch(err => vscode.window.showErrorMessage(err));
+				includeXMLFileWiz(dir_path, file_name).catch(err => vscode.window.showErrorMessage(err));
+
 				inputBox.hide();
 				resolve(file_name);
 			} else {
@@ -265,6 +311,7 @@ export function activate(context: vscode.ExtensionContext) {
 		});
 		inputBox.onDidAccept(() => {
 			if (wiz_name) {
+				wiz_name = wiz_name.replaceAll(' ', '_').replaceAll('.', '_');
 				// Armar un nombre con el de la carpeta conedora
 				getModuleFolderoERP7()
 					.then(mdl => create_filesWizard(mdl.module_path, mdl.module_name, wiz_name!))
