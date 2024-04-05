@@ -229,7 +229,7 @@ async function includePyFileWiz(dir_path: string, file_name: string): Promise<vo
 async function includeXMLFileWiz(dir_path: string, file_name: string): Promise<void> {
 	return new Promise(async (resolve, reject) => {
 		let to_replace = "'update_xml': [";
-		let new_text = `${to_replace}\n'wizard/${file_name}_view.xml'`;
+		let new_text = `${to_replace}\n'wizard/${file_name}_view.xml',`;
 		let file_path = `${dir_path}/__openerp__.py`;
 		try {
 			let doc_content = (await vscode.workspace.openTextDocument(file_path)).getText();
