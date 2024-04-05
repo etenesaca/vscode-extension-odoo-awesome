@@ -126,26 +126,17 @@ function getModuleFolderoERP7(): Promise<{ module_name: string, module_path: str
 	return new Promise((resolve, reject) => {
 		// Obtener el editor de texto activo
 		const editor = vscode.window.activeTextEditor;
-		let module_finded = false;
 		let cur_folder = editor!.document.uri.fsPath;
-		let prev_folder = cur_folder;
-		while (!module_finded) {
+		while (cur_folder !== '/') {
 			cur_folder = path.dirname(cur_folder);
-			if (path.basename(cur_folder) === 'addons') {
-				module_finded = true;
-				// revisar si la carpeta contiene init.py y al capeta wizard
-				if (checkValidOerpDir(prev_folder)) {
-					return resolve({
-						'module_name': path.basename(prev_folder),
-						'module_path': prev_folder
-					});
-				} else {
-					reject(`La carpeta ${path.basename(prev_folder)} no contine la estructura de archivo de un modulo de OpenERP7`);
-				}
+			if (checkValidOerpDir(cur_folder)) {
+				return resolve({
+					'module_name': path.basename(cur_folder),
+					'module_path': cur_folder
+				});
 			}
-			prev_folder = cur_folder;
 		}
-		reject('Carpeta no valida');
+		reject('No se encontró un modulo de OpenERP 7.0');
 	});
 }
 
