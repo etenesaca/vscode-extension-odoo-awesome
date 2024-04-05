@@ -53,7 +53,7 @@ function get_modules_path(): Promise<string> {
 						resolve(res_path);
 					});
 			} else {
-				reject('x');
+				reject('No se puede obtener el directorio');
 			}
 		});
 	});
@@ -126,9 +126,6 @@ function getModuleFolderoERP7(): Promise<{ module_name: string, module_path: str
 	return new Promise((resolve, reject) => {
 		// Obtener el editor de texto activo
 		const editor = vscode.window.activeTextEditor;
-		if (!editor) {
-			return reject(new Error('No selecciono ningun archivo'));
-		}
 		let module_finded = false;
 		let cur_folder = editor!.document.uri.fsPath;
 		let prev_folder = cur_folder;
@@ -138,17 +135,43 @@ function getModuleFolderoERP7(): Promise<{ module_name: string, module_path: str
 				module_finded = true;
 				// revisar si la carpeta contiene init.py y al capeta wizard
 				if (checkValidOerpDir(prev_folder)) {
-					resolve({
+					return resolve({
 						'module_name': path.basename(prev_folder),
 						'module_path': prev_folder
 					});
 				} else {
-					reject(new Error('Carpeta no valida'));
+					reject(`La carpeta ${path.basename(prev_folder)} no contine la estructura de archivo de un modulo de OpenERP7`);
 				}
 			}
 			prev_folder = cur_folder;
 		}
-		reject(new Error('Carpeta no valida'));
+		reject('Carpeta no valida');
+	});
+}
+
+function inputNameWizardOERP7(module: string): Promise<string> {
+	return new Promise((resolve, reject) => {
+		let wiz_name: string | undefined;
+		const inputBox = vscode.window.createInputBox();
+		inputBox.title = `Nuevo wizard / ${module.toUpperCase()}`;
+		inputBox.placeholder = "Nombre del wizard";
+		inputBox.onDidChangeValue(value => {
+			if (value.includes(' ')) {
+				inputBox.validationMessage = 'No puede contener espacios';
+			} else {
+				inputBox.validationMessage = '';
+			}
+			wiz_name = value.trim().toLowerCase().replaceAll(' ', '_');
+		});
+		inputBox.onDidAccept(() => {
+			if (wiz_name) {
+				resolve(wiz_name);
+			} else {
+				reject(new Error('Creación del wizard cancelada.'));
+				inputBox.hide();
+			}
+		});
+		inputBox.show();
 	});
 }
 
@@ -182,7 +205,7 @@ async function createFile(
 			txt_placeholder = doc.getText()
 				.replaceAll('_CLASS_TABLE_', model_name.replaceAll('.', '_'))
 				.replaceAll('_CLASS_MODEL_', model_name)
-				.replaceAll('_WIZARD_NAME_', capitalizeText(wiz_name).replaceAll('_', ' '));
+				.replaceAll('_WIZARD_NAME_', capitalizeText(wiz_name).replaceAll('_', ' ').replaceAll('.', ' '));
 		}
 		fs.writeFileSync(file_path, txt_placeholder);
 		if (open_file) { abrirArchivo(file_path); }
@@ -239,7 +262,7 @@ function create_filesWizard(dir_path: string, module_name: string, wiz_name: str
 	return new Promise((resolve, reject) => {
 		let ext_dir = path.resolve(__dirname, '..', 'src');
 		let mdl = module_name?.toLowerCase().replaceAll(' ', '_');
-		let file_name = wiz_name.toLowerCase().replaceAll(' ', '_');
+		let file_name = wiz_name.toLowerCase().replaceAll(' ', '_').replaceAll('.', '_');
 		let model: string = `${mdl}_${file_name}_wizard`.toLowerCase().replaceAll('_', '.');
 		// Crear los archivos
 		let model_name: string | undefined;
@@ -295,38 +318,26 @@ export function activate(context: vscode.ExtensionContext) {
 	//OERP 7
 	//====================================
 	let oerp7_new_wizard = vscode.commands.registerCommand('oerp7_new_wizard', () => {
-		let wiz_name: string | undefined;
-		let wiz_path: string | undefined;
-
-		const inputBox = vscode.window.createInputBox();
-		inputBox.title = "Nuevo wizard";
-		inputBox.placeholder = "Nombre del wizard";
-		inputBox.onDidChangeValue(value => {
-			if (value.includes(' ')) {
-				inputBox.validationMessage = 'No puede contener espacios';
-			} else {
-				inputBox.validationMessage = '';
-			}
-			wiz_name = value.trim().toLowerCase().replaceAll(' ', '_');
+		// Revisar si antes se seleccioó un archivo del proyecto
+		if (!vscode.window.activeTextEditor) {
+			vscode.window.showWarningMessage("Primero abra un archivo del proyecto.");
+			return;
+		}
+		let module: { module_name: string, module_path: string };
+		let wiz_name: string;
+		getModuleFolderoERP7().then(mdl => {
+			module = mdl;
+			return inputNameWizardOERP7(module.module_name);
+		}).then(name => {
+			wiz_name = name;
+			return create_filesWizard(module.module_path, module.module_name, wiz_name);
+		}).then(x => {
+			vscode.window.showInformationMessage(`Wizard creado '${wiz_name}'.`);
+		}).catch(err => {
+			vscode.window.showErrorMessage(err);
 		});
-		inputBox.onDidAccept(() => {
-			if (wiz_name) {
-				wiz_name = wiz_name.replaceAll(' ', '_').replaceAll('.', '_');
-				// Armar un nombre con el de la carpeta conedora
-				getModuleFolderoERP7()
-					.then(mdl => create_filesWizard(mdl.module_path, mdl.module_name, wiz_name!))
-					.then(x => {
-						vscode.window.showInformationMessage(`Wizard creado '${x}'.`);
-					})
-					.catch(err => vscode.window.showErrorMessage(`No se pudo crear wizard: ${err}`));
-				inputBox.hide();
-			} else {
-				vscode.window.showErrorMessage("Creación del wizard cancelada.");
-				inputBox.hide();
-			}
-		});
-		inputBox.show();
 	});
+
 	context.subscriptions.push(oerp7_new_wizard);
 
 	//====================================
