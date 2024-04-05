@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import * as child_process from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
+import { Console } from 'console';
 
 function call_odoo_scafold(
 	mdl: string,
@@ -115,53 +116,124 @@ function get_python_bin_folder(): Promise<string> {
 	});
 }
 
-
-function lsDirectory(currentDir: string): Promise<string[]> {
-	return new Promise((resolve, reject) => {
-		// Listar los archivos en el directorio
-		fs.readdir(currentDir, (err, files) => {
-			if (err) {
-				vscode.window.showErrorMessage(`Error al leer el directorio: ${err.message}`);
-				return reject(err);
-			}
-
-			// Mostrar los archivos en la consola
-			console.log('Archivos en el directorio:');
-			files.forEach(file => {
-				console.log(file);
-			});
-			resolve(files);
-		});
-	});
+function checkValidOerpDir(path: string): boolean {
+	let elements_to_check = ['__init__.py', '__openerp__.py', 'wizard', 'report'];
+	const files = fs.readdirSync(path);
+	return elements_to_check.every(x => files.includes(x));
 }
 
-function getModuleFolder(): Promise<string> {
+function getModuleFolderoERP7(): Promise<{ module_name: string, module_path: string }> {
 	return new Promise((resolve, reject) => {
 		// Obtener el editor de texto activo
 		const editor = vscode.window.activeTextEditor;
 		if (!editor) {
-			reject('No seleccionó ningun archvo');
+			return reject(new Error('No selecciono ningun archivo'));
 		}
-		let finded = false;
-
+		let module_finded = false;
 		let cur_folder = editor!.document.uri.fsPath;
 		let prev_folder = cur_folder;
-		while (!finded) {
+		while (!module_finded) {
 			cur_folder = path.dirname(cur_folder);
 			if (path.basename(cur_folder) === 'addons') {
+				module_finded = true;
 				// revisar si la carpeta contiene init.py y al capeta wizard
-				lsDirectory(cur_folder)
-					.then(files => {
-						let x = 19;
-						x = 19;
-						x = 19;
-						resolve(prev_folder);
-					})
-					.catch(err => reject(err));
+				if (checkValidOerpDir(prev_folder)) {
+					resolve({
+						'module_name': path.basename(prev_folder),
+						'module_path': prev_folder
+					});
+				} else {
+					reject(new Error('Carpeta no valida'));
+				}
 			}
 			prev_folder = cur_folder;
 		}
-		resolve(cur_folder);
+		reject(new Error('Carpeta no valida'));
+	});
+}
+
+async function abrirArchivo(rutaArchivo: string) {
+	try {
+		// Abre el archivo como un documento de texto
+		const documento = await vscode.workspace.openTextDocument(rutaArchivo);
+
+		// Muestra el documento en el editor
+		await vscode.window.showTextDocument(documento);
+	} catch (error) {
+		console.error('Error al abrir el archivo:', error);
+	}
+}
+
+
+function capitalizeText(text: string): string {
+    return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+async function createFile(
+	file_path: string, placeholder_path: string,
+	model_name: string, wiz_name: string,
+	open_file: boolean = false
+) {
+	try {
+		// Abre el archivo como un documento de texto
+		let txt_placeholder = '';
+		if (placeholder_path !== '') {
+			let doc = await vscode.workspace.openTextDocument(placeholder_path);
+			txt_placeholder = doc.getText()
+				.replaceAll('_CLASS_TABLE_', model_name.replaceAll('.', '_'))
+				.replaceAll('_CLASS_MODEL_', model_name)
+				.replaceAll('_WIZARD_NAME_', capitalizeText(wiz_name).replaceAll('_', ' '));
+		}
+		fs.writeFileSync(file_path, txt_placeholder);
+		if (open_file) { abrirArchivo(file_path); }
+	} catch (error) {
+		console.error('Error al abrir el archivo:', error);
+	}
+}
+
+
+function create_filesWizard(dir_path: string, module_name: string, wiz_name: string): Promise<string> {
+	return new Promise((resolve, reject) => {
+		let ext_dir = path.resolve(__dirname, '..', 'src');
+		let mdl = module_name?.toLowerCase().replaceAll(' ', '_');
+		let file_name = wiz_name.toLowerCase().replaceAll(' ', '_');
+		let model: string = `${mdl}_${file_name}_wizard`.toLowerCase().replaceAll('_', '.');
+		// Crear los archivos
+		let model_name: string | undefined;
+		const inputBox = vscode.window.createInputBox();
+		inputBox.title = "Modelo del nuevo wizard";
+		inputBox.value = model;
+		model_name = model;
+		inputBox.placeholder = "modelo";
+		console.log(dir_path);
+
+		inputBox.onDidChangeValue(value => {
+			if (value.includes(' ')) {
+				inputBox.validationMessage = 'No puede contener espacios';
+			} else {
+				inputBox.validationMessage = '';
+			}
+			model_name = value.trim().toLowerCase().replaceAll(' ', '_');
+		});
+		inputBox.onDidAccept(() => {
+			if (model_name) {
+				// crear archivo Python
+				let path_py_file = `${dir_path}/wizard/${file_name}.py`;
+				let py_placeholder = `${ext_dir}/placeholder/wizard_py_def_content.py`;
+				createFile(path_py_file, py_placeholder, model_name, wiz_name, true);
+
+				// crear archivo xml para vistas
+				let path_xml_file = `${dir_path}/wizard/${file_name}_view.xml`;
+				let xml_placeholder = `${ext_dir}/placeholder/wizard_xml_def_content.xml`;
+				createFile(path_xml_file, xml_placeholder, model_name, wiz_name);
+				inputBox.hide();
+				resolve(file_name);
+			} else {
+				vscode.window.showErrorMessage("Creación del wizard cancelada.");
+				inputBox.hide();
+			}
+		});
+		inputBox.show();
 	});
 }
 
@@ -190,14 +262,16 @@ export function activate(context: vscode.ExtensionContext) {
 				inputBox.validationMessage = '';
 			}
 			wiz_name = value.trim().toLowerCase().replaceAll(' ', '_');
-
 		});
 		inputBox.onDidAccept(() => {
 			if (wiz_name) {
 				// Armar un nombre con el de la carpeta conedora
-				getModuleFolder().then(folder => {
-					vscode.window.showInformationMessage(`Wizard creado '${wiz_name}'.`);
-				}).catch(err => vscode.window.showErrorMessage("Algo ha salido mal."))
+				getModuleFolderoERP7()
+					.then(mdl => create_filesWizard(mdl.module_path, mdl.module_name, wiz_name!))
+					.then(x => {
+						vscode.window.showInformationMessage(`Wizard creado '${x}'.`);
+					})
+					.catch(err => vscode.window.showErrorMessage(`No se pudo crear wizard: ${err}`));
 				inputBox.hide();
 			} else {
 				vscode.window.showErrorMessage("Creación del wizard cancelada.");
