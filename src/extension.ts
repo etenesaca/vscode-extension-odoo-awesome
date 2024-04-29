@@ -117,7 +117,7 @@ function get_python_bin_folder(): Promise<string> {
 }
 
 function checkValidOerpDir(path: string): boolean {
-	let elements_to_check = ['__init__.py', '__openerp__.py', 'wizard', 'report'];
+	let elements_to_check = ['__init__.py', '__openerp__.py', 'wizard'];
 	const files = fs.readdirSync(path);
 	return elements_to_check.every(x => files.includes(x));
 }
