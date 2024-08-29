@@ -276,8 +276,32 @@ function create_filesWizard(dir_path: string, module_name: string, wiz_name: str
 				// crear archivo Python
 				let path_py_file = `${dir_path}/wizard/${file_name}.py`;
 				let py_placeholder = `${ext_dir}/placeholder/wizard_py_def_content.py`;
-				createFile(path_py_file, py_placeholder, model_name, wiz_name, true);
+				
+				createFile(path_py_file, py_placeholder, model_name, wiz_name, true)
+                    .then(() => {
+                        let path_xml_file = `${dir_path}/wizard/${file_name}_view.xml`;
+                        let xml_placeholder = `${ext_dir}/placeholder/wizard_xml_def_content.xml`;
 
+                        return createFile(path_xml_file, xml_placeholder, model_name!, wiz_name);
+                    })
+                    .then(() => {
+                        return includePyFileWiz(dir_path, file_name);
+                    })
+                    .then(() => {
+                        return includeXMLFileWiz(dir_path, file_name);
+                    })
+                    .then(() => {
+                        inputBox.hide();
+                        resolve(file_name);
+                    })
+                    .catch(err => {
+                        vscode.window.showErrorMessage(`Error al crear wizard: ${err.message}`);
+                        inputBox.hide();
+                        reject(err);
+                    });
+				/* 
+				createFile(path_py_file, py_placeholder, model_name, wiz_name, true);
+				
 				// crear archivo xml para vistas
 				let path_xml_file = `${dir_path}/wizard/${file_name}_view.xml`;
 				let xml_placeholder = `${ext_dir}/placeholder/wizard_xml_def_content.xml`;
@@ -285,9 +309,10 @@ function create_filesWizard(dir_path: string, module_name: string, wiz_name: str
 				// Agregar nuevo wizard al imports
 				includePyFileWiz(dir_path, file_name).catch(err => vscode.window.showErrorMessage(err));
 				includeXMLFileWiz(dir_path, file_name).catch(err => vscode.window.showErrorMessage(err));
-
+				
 				inputBox.hide();
 				resolve(file_name);
+				*/
 			} else {
 				vscode.window.showErrorMessage("Creación del wizard cancelada.");
 				inputBox.hide();
